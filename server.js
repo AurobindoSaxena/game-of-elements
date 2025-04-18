@@ -40,7 +40,10 @@ io.on('connection', (socket) => {
     socket.join(gameId);
     socket.playerName = playerName;
     socket.gameId = gameId;
-    callback({ gameId, link: `https://${process.env.DOMAIN || 'localhost:3000'}/game/${gameId}` });
+    callback({
+      gameId,
+      link: `https://${process.env.DOMAIN || 'localhost:3000'}/game/${gameId}`
+    });
     io.to(gameId).emit('updatePlayers', {
       players: games[gameId].players.map(p => p.name),
       choices: games[gameId].choices
@@ -49,18 +52,10 @@ io.on('connection', (socket) => {
 
   // Join game
   socket.on('joinGame', ({ gameId, playerName }, callback) => {
-    if (!games[gameId]) {
-      callback({ error: 'Game not found' });
-      return;
-    }
-    if (games[gameId].players.length >= games[gameId].totalPlayers) {
-      callback({ error: 'Game is full' });
-      return;
-    }
-    if (games[gameId].players.some(p => p.name === playerName)) {
-      callback({ error: 'Name already taken' });
-      return;
-    }
+    if (!games[gameId]) return callback({ error: 'Game not found' });
+    if (games[gameId].players.length >= games[gameId].totalPlayers) return callback({ error: 'Game is full' });
+    if (games[gameId].players.some(p => p.name === playerName)) return callback({ error: 'Name already taken' });
+
     games[gameId].players.push({ name: playerName });
     socket.join(gameId);
     socket.playerName = playerName;
@@ -101,7 +96,7 @@ io.on('connection', (socket) => {
   // Next round
   socket.on('nextRound', ({ gameId }) => {
     if (!games[gameId]) return;
-    games[gameId].round += 1;
+    games[gameId].round++;
     games[gameId].status = 'playing';
     games[gameId].choices = {};
     io.to(gameId).emit('startRound', { round: games[gameId].round });
@@ -133,7 +128,6 @@ const winConditions = {
   Air: ['Water', 'Ether'],
   Ether: ['Air', 'Fire']
 };
-
 const winDescriptions = {
   Fire: { Earth: 'burns', Ether: 'purifies' },
   Water: { Fire: 'extinguishes', Earth: 'erodes' },
@@ -142,7 +136,6 @@ const winDescriptions = {
   Ether: { Air: 'transcends', Fire: 'controls' }
 };
 
-// Calculate result without nested template literals
 function calculateResult(choices, players) {
   let result = '';
   let explanation = [];
@@ -156,9 +149,8 @@ function calculateResult(choices, players) {
     let winners = [];
     for (let player of players) {
       let isWinner = true;
-      for (let otherPlayer of players) {
-        if (otherPlayer.name !== player.name &&
-            winConditions[choices[otherPlayer.name]].includes(choices[player.name])) {
+      for (let other of players) {
+        if (other.name !== player.name && winConditions[choices[other.name]].includes(choices[player.name])) {
           isWinner = false;
           break;
         }

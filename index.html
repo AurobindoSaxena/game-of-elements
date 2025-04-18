@@ -9,14 +9,11 @@
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
   <div id="game-container" class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-    <!-- Error Screen -->
     <div id="error-screen" class="hidden text-center text-red-600">
       <h1 class="text-2xl font-bold mb-4">Connection Error</h1>
       <p class="mb-4">Unable to connect to the game server. Please try again.</p>
       <button id="retry-connection" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Retry</button>
     </div>
-
-    <!-- Landing Screen -->
     <div id="landing-screen" class="text-center">
       <h1 class="text-3xl font-bold mb-2">Game of Elements</h1>
       <p class="text-sm italic mb-4">Envisioned by Aurobindo Saxena</p>
@@ -41,8 +38,6 @@
       <input type="text" id="game-id" placeholder="Enter Game ID" class="w-full p-2 mb-2 border rounded">
       <button id="join-game" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Join Game</button>
     </div>
-
-    <!-- Game Screen -->
     <div id="game-screen" class="hidden text-center">
       <h2 class="text-2xl font-bold mb-4">Round <span id="round-number">1</span></h2>
       <p id="current-player" class="mb-2"></p>
@@ -59,8 +54,6 @@
       <p class="mb-2">Players:</p>
       <ul id="player-status" class="text-left mb-4"></ul>
     </div>
-
-    <!-- Result Screen -->
     <div id="result-screen" class="hidden text-center">
       <h2 class="text-2xl font-bold mb-4">Round Result</h2>
       <p id="result-text" class="mb-4 text-left"></p>
@@ -69,135 +62,27 @@
       <button id="new-game" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 mt-2">New Game</button>
     </div>
   </div>
-
   <script>
-    /*
-     * Local Preview Instructions:
-     * 1. Run `node server.js` in the project root.
-     * 2. Access at `http://localhost:3000`.
-     * 3. Check console for errors if issues persist.
-     */
-
     let socket;
     try {
-      socket = io({ transports: ['websocket', 'polling'] });
+      socket = io({ transports: ['websocket','polling'] });
     } catch (e) {
-      console.error('Socket.IO initialization failed:', e);
-      showErrorScreen();
+      document.getElementById('landing-screen').classList.add('hidden');
+      document.getElementById('error-screen').classList.remove('hidden');
     }
-
-    let gameId = null;
-    let playerName = null;
-    let totalPlayers = null;
-    let timerInterval = null;
-
-    // DOM Elements
-    const errorScreen = document.getElementById('error-screen');
-    const landingScreen = document.getElementById('landing-screen');
-    const gameScreen = document.getElementById('game-screen');
-    const resultScreen = document.getElementById('result-screen');
-    const playerNameInput = document.getElementById('player-name');
-    const totalPlayersSelect = document.getElementById('total-players');
-    const gameIdInput = document.getElementById('game-id');
-    const createGameBtn = document.getElementById('create-game');
-    const joinGameBtn = document.getElementById('join-game');
-    const currentPlayerText = document.getElementById('current-player');
-    const gameLink = document.getElementById('game-link');
-    const roundNumber = document.getElementById('round-number');
-    const elementSelect = document.getElementById('element-select');
-    const submitChoiceBtn = document.getElementById('submit-choice');
-    const playerStatus = document.getElementById('player-status');
-    const resultText = document.getElementById('result-text');
-    const nextRoundBtn = document.getElementById('next-round');
-    const newGameBtn = document.getElementById('new-game');
-    const timerSeconds = document.getElementById('timer-seconds');
-    const retryConnectionBtn = document.getElementById('retry-connection');
-
-    // Show error screen
-    function showErrorScreen() {
-      landingScreen.classList.add('hidden');
-      errorScreen.classList.remove('hidden');
-    }
-
-    // Retry connection
-    retryConnectionBtn.addEventListener('click', () => {
-      errorScreen.classList.add('hidden');
-      landingScreen.classList.remove('hidden');
-      try {
-        socket = io({ transports: ['websocket', 'polling'] });
-        bindSocketEvents();
-      } catch (e) {
-        console.error('Socket.IO retry failed:', e);
-        showErrorScreen();
-      }
-    });
-
-    // Start 30-second timer
-    function startTimer() {
-      let seconds = 30;
-      timerSeconds.textContent = seconds;
-      timerInterval = setInterval(() => {
-        seconds--;
-        timerSeconds.textContent = seconds;
-        if (seconds <= 0) {
-          clearInterval(timerInterval);
-          socket.emit('nextRound', { gameId });
-        }
-      }, 1000);
-    }
-
-    // Socket.IO event bindings
     function bindSocketEvents() {
-      socket.on('connect_error', (err) => {
-        console.error('Socket.IO connection error:', err);
-        showErrorScreen();
-      });
-      socket.on('updatePlayers', ({ players, choices }) => {
-        playerStatus.innerHTML = players.map(p => {
-          const hasSubmitted = choices[p] ? ' (Submitted)' : '';
-          return `<li>${p}${hasSubmitted}</li>`;
-        }).join('');
-      });
-      socket.on('startRound', ({ round }) => {
-        landingScreen.classList.add('hidden');
-        gameScreen.classList.remove('hidden');
-        resultScreen.classList.add('hidden');
-        roundNumber.textContent = round;
-        currentPlayerText.textContent = `${playerName}, select an element:`;
-        elementSelect.value = '';
-        submitChoiceBtn.disabled = false;
-        clearInterval(timerInterval);
-      });
-      socket.on('showResult', ({ result, choices, round }) => {
-        gameScreen.classList.add('hidden');
-        resultScreen.classList.remove('hidden');
-        roundNumber.textContent = round;
-        let resHtml = result.result;
-        resHtml += `<br><br><strong>Choices:</strong> ` + Object.entries(choices).map(([p, e]) => `${p}: ${e}`).join(', ');
-        resHtml += `<br><br><strong>Why:</strong> ` + result.explanation.join('; ');
-        resultText.innerHTML = resHtml;
-        startTimer();
-      });
-      nextRoundBtn.addEventListener('click', () => {
-        clearInterval(timerInterval);
-        socket.emit('nextRound', { gameId });
-      });
-      newGameBtn.addEventListener('click', () => {
-        clearInterval(timerInterval);
-        socket.emit('newGame', { gameId });
-      });
-      socket.on('resetGame', () => {
-        resultScreen.classList.add('hidden');
-        landingScreen.classList.remove('hidden');
-        gameLink.innerHTML = '';
-        playerStatus.innerHTML = '';
-        clearInterval(timerInterval);
+      document.getElementById('create-game').addEventListener('click', () -> {
+        const name = document.getElementById('player-name').value.trim();
+        const total = document.getElementById('total-players').value;
+        if (!name || !total) return alert('Enter name & total players');
+        socket.emit('createGame',{playerName:name,totalPlayers:total},res => {
+          document.getElementById('game-link').innerHTML = `Share: <a href="${res.link}" target="_blank">${res.link}</a>`;
+          document.getElementById('landing-screen').classList.add('hidden');
+          document.getElementById('game-screen').classList.remove('hidden');
+        });
       });
     }
     if (socket) bindSocketEvents();
-    const urlParams = new URLSearchParams(window.location.search);
-    const id = urlParams.get('gameId') || window.location.pathname.split('/game/')[1];
-    if (id) gameIdInput.value = id;
   </script>
 </body>
 </html>
