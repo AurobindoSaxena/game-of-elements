@@ -11,19 +11,26 @@
 
   <!-- Game Title and Rules -->
   <div id="rules-screen">
-    <h1 class="text-2xl font-bold mb-4">Game of Elements</h1>
+    <h1 class="text-2xl font-bold mb-4">Game of Elements (Envisioned by Aurobindo Saxena)</h1>
     <div class="text-left mb-4">
-      <h2 class="font-semibold">Win Conditions:</h2>
+      <h2 class="font-semibold">Game Rules:</h2>
       <ul class="list-disc list-inside text-left text-sm">
-        <li><strong>Fire:</strong> Beats Earth (burns it), Ether (purifies it); Loses to Water (extinguished), Air (disrupted).</li>
-        <li><strong>Water:</strong> Beats Fire (extinguishes it), Earth (erodes it); Loses to Air (disrupted), Ether (transcended).</li>
-        <li><strong>Earth:</strong> Beats Air (grounds it), Water (absorbs it); Loses to Fire (burned), Ether (transcended).</li>
-        <li><strong>Air:</strong> Beats Water (disrupts it), Ether (scatters it); Loses to Earth (grounded), Fire (burned).</li>
-        <li><strong>Ether:</strong> Beats Air (transcends it), Fire (controls it); Loses to Water (eroded), Earth (absorbed).</li>
+        <li>Fire: Beats Earth (burns it) and Ether (purifies it); but loses to Water (extinguished) and Air (disrupted).</li>
+        <li>Water: Beats Fire (extinguishes it) and Earth (erodes it); but loses to Air (disrupted) and Ether (transcended).</li>
+        <li>Earth: Beats Air (grounds it) and Water (absorbs it); but loses to Fire (burned), Ether (transcended).</li>
+        <li>Air: Beats Water (disrupts it) and Ether (scatters it); but loses to Earth (grounded), Fire (burned).</li>
+        <li>Ether: Beats Air (transcends it) and Fire (controls it); but loses to Water (eroded), Earth (absorbed).</li>
       </ul>
     </div>
+    </div>
     <input id="player-name" placeholder="Enter Your Name" class="border p-2 rounded w-full mb-2"/>
-    <input id="expected-players" type="number" min="2" max="6" placeholder="Number of Players" class="border p-2 rounded w-full mb-2"/>
+    <select id="expected-players" class="border p-2 rounded w-full mb-2">
+      <option value="">Select Number of Players</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+    </select>
     <button id="create-game" class="bg-blue-500 text-white p-2 rounded">Create Game</button>
     <input id="game-id" placeholder="Game ID" class="border p-2 rounded w-full mt-4 mb-2"/>
     <button id="join-game" class="bg-green-500 text-white p-2 rounded">Join Game</button>
@@ -57,5 +64,32 @@
     <button id="next-round" class="bg-green-500 text-white p-2 rounded hidden">Next Round</button>
   </div>
 </div>
+
+<script>
+const socket = io();
+let gameId, playerName, expectedPlayers = 2;
+const el = id => document.getElementById(id);
+
+document.getElementById('create-game').onclick = () => {
+  playerName = el('player-name').value.trim();
+  expectedPlayers = parseInt(el('expected-players').value);
+
+  if (!playerName || isNaN(expectedPlayers) || expectedPlayers < 2) {
+    alert('Please enter your name and select number of players (2-5).');
+    return;
+  }
+
+  socket.emit('createGame', { expectedPlayers }, (data) => {
+    gameId = data.gameId;
+    el('display-game-id').innerText = gameId;
+    el('game-link').innerHTML = `Share this link: <a href="${data.link}">${data.link}</a>`;
+    socket.emit('joinGame', { gameId, playerName }, (res) => {
+      if (res.error) return alert(res.error);
+      el('rules-screen').classList.add('hidden');
+      el('lobby-screen').classList.remove('hidden');
+    });
+  });
+};
+</script>
 </body>
 </html>
