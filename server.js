@@ -6,118 +6,87 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: '*' }
-});
-
-const games = {};
+const io = new Server(server);
 
 app.use(express.static(__dirname));
-
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
-app.get('/game/:gameId', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
+
+const games = {};
+const rules = {
+  Fire: ['Earth', 'Ether'],
+  Water: ['Fire', 'Earth'],
+  Earth: ['Air', 'Water'],
+  Air: ['Water', 'Ether'],
+  Ether: ['Air', 'Fire']
+};
 
 io.on('connection', (socket) => {
-  socket.on('createGame', ({ playerName, totalPlayers }, callback) => {
-    const gameId = uuidv4();
-    games[gameId] = { players: [{name: playerName}], choices: {}, totalPlayers: +totalPlayers, round:1, status:'waiting' };
-    socket.join(gameId);
-    socket.playerName = playerName;
-    socket.gameId = gameId;
-    callback({ gameId });
-    io.to(gameId).emit('updatePlayers', { players: games[gameId].players.map(p=>p.name), choices: games[gameId].choices });
+  socket.on('createGame', ({ expectedPlayers }, callback) => {
+    const gameId = uuidv4().slice(0, 6);
+    games[gameId] = { players: [], choices: {}, round: 1, expectedPlayers };
+    callback({ gameId, link: `${socket.handshake.headers.referer.split('?')[0]}?gameId=${gameId}` });
   });
 
   socket.on('joinGame', ({ gameId, playerName }, callback) => {
-    if (!games[gameId]) return callback({ error:'Game not found' });
-    if (games[gameId].players.length>=games[gameId].totalPlayers) return callback({ error:'Game is full' });
-    if (games[gameId].players.some(p=>p.name===playerName)) return callback({ error:'Name already taken' });
-    games[gameId].players.push({name:playerName});
-    socket.join(gameId);
-    socket.playerName = playerName;
-    socket.gameId = gameId;
-    io.to(gameId).emit('updatePlayers', { players: games[gameId].players.map(p=>p.name), choices:games[gameId].choices });
-    callback({ success:true });
-    if (games[gameId].players.length===games[gameId].totalPlayers) {
-      games[gameId].status='playing';
-      io.to(gameId).emit('startRound',{ round: games[gameId].round });
-    }
+    const game = games[gameId];
+    if (!game) return callback({ error: 'Game not found' });
+    if (game.players.includes(playerName)) return callback({ error: 'Name already taken' });
+    game.players.push(playerName);
+    io.emit('updatePlayers', game.players);
+    callback({ success: true });
+  });
+
+  socket.on('startRound', ({ gameId }) => {
+    const game = games[gameId];
+    if (!game) return;
+    game.choices = {};
+    io.emit('startRound', { round: game.round });
   });
 
   socket.on('submitChoice', ({ gameId, playerName, element }) => {
-    if (!games[gameId]||games[gameId].status!=='playing') return;
-    games[gameId].choices[playerName] = element;
-    io.to(gameId).emit('updatePlayers',{ players: games[gameId].players.map(p=>p.name), choices: games[gameId].choices });
-    if (Object.keys(games[gameId].choices).length===games[gameId].players.length) {
-      const result = calculateResult(games[gameId].choices, games[gameId].players);
-      games[gameId].status = 'result';
-      io.to(gameId).emit('showResult',{ result, choices:games[gameId].choices, round:games[gameId].round });
+    const game = games[gameId];
+    if (!game) return;
+    game.choices[playerName] = element;
+    if (Object.keys(game.choices).length === game.players.length) {
+      const result = evaluateGame(game.choices);
+      io.emit('showResult', { result, choices: game.choices, round: game.round });
+      game.round++;
     }
   });
 
   socket.on('nextRound', ({ gameId }) => {
-    if (!games[gameId]) return;
-    games[gameId].round++;
-    games[gameId].status='playing';
-    games[gameId].choices={};
-    io.to(gameId).emit('startRound',{ round: games[gameId].round });
-    io.to(gameId).emit('updatePlayers',{ players: games[gameId].players.map(p=>p.name), choices:games[gameId].choices });
+    io.emit('startRound', { round: games[gameId].round });
   });
 
   socket.on('newGame', ({ gameId }) => {
-    if (!games[gameId]) return;
-    games[gameId].choices={};
-    games[gameId].round=1;
-    games[gameId].status='waiting';
-    io.to(gameId).emit('resetGame');
+    const game = games[gameId];
+    game.choices = {};
+    game.round = 1;
+    io.emit('resetGame');
   });
 });
 
-const winConditions = {
-  Fire:['Earth','Ether'],
-  Water:['Fire','Earth'],
-  Earth:['Air','Water'],
-  Air:['Water','Ether'],
-  Ether:['Air','Fire']
-};
-const winDescriptions = {
-  Fire:{Earth:'burns',Ether:'purifies'},
-  Water:{Fire:'extinguishes',Earth:'erodes'},
-  Earth:{Air:'grounds',Water:'absorbs'},
-  Air:{Water:'disrupts',Ether:'scatters'},
-  Ether:{Air:'transcends',Fire:'controls'}
-};
-
-function calculateResult(choices, players) {
-  let allSame = new Set(Object.values(choices)).size===1;
-  if(allSame) return { result:'Draw! All players chose '+Object.values(choices)[0]+'.', explanation:['No one beats another since all selected the same element.'] };
-  let winners=[];
-  for(let p of players){
-    let win=true;
-    for(let o of players){
-      if(o.name!==p.name && winConditions[choices[o.name]].includes(choices[p.name])){ win=false; break; }
-    }
-    if(win) winners.push({player:p.name,element:choices[p.name]});
-  }
-  let explanation=[];
-  let result='';
-  if(!winners.length||winners.length===players.length){
-    result='Draw! No clear winner.';
-    explanation.push(!winners.length?'No element is unbeaten; each is countered by another.':'All players are unbeaten, resulting in a tie.');
-  } else {
-    result='Winner(s): '+winners.map(w=>w.player+' ('+w.element+')').join(', ');
-    for(let w of winners){
-      let beats=players.filter(p=>p.name!==w.player && winConditions[w.element].includes(choices[p.name]))
-        .map(p=>w.element+' '+winDescriptions[w.element][choices[p.name]]+' '+choices[p.name]+' ('+p.name+')');
-      explanation.push(w.player+' wins: '+beats.join(', '));
-    }
-  }
-  return {result,explanation};
+function evaluateGame(choices) {
+  const results = {};
+  const explanation = [];
+  const players = Object.keys(choices);
+  players.forEach(p1 => {
+    results[p1] = players.reduce((count, p2) =>
+      count + (p1 !== p2 && rules[choices[p1]].includes(choices[p2]) ? 1 : 0), 0);
+  });
+  const maxScore = Math.max(...Object.values(results));
+  const winners = players.filter(p => results[p] === maxScore);
+  let resultText = winners.length === 1 ? `${winners[0]} wins!` : "It's a draw!";
+  players.forEach(p1 => {
+    players.forEach(p2 => {
+      if (p1 !== p2 && rules[choices[p1]].includes(choices[p2])) {
+        explanation.push(`${p1}'s ${choices[p1]} beats ${p2}'s ${choices[p2]}`);
+      }
+    });
+  });
+  return { result: resultText, explanation };
 }
 
-const PORT = process.env.PORT||3000;
-server.listen(PORT,()=>console.log('Server running on port '+PORT));
+server.listen(process.env.PORT || 3000);
