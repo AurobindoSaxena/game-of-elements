@@ -13,17 +13,17 @@ const io = new Server(server, {
 // Store game state
 const games = {};
 
-// Serve static files
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files from root directory
+app.use(express.static(__dirname));
 
 // Handle root route
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Generate game link
+// Handle game route
 app.get('/game/:gameId', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 io.on('connection', (socket) => {
@@ -41,7 +41,10 @@ io.on('connection', (socket) => {
     socket.playerName = playerName;
     socket.gameId = gameId;
     callback({ gameId, link: `https://${process.env.DOMAIN || 'localhost:3000'}/game/${gameId}` });
-    io.to(gameId).emit('updatePlayers', { players: games[gameId].players.map(p => p.name), choices: games[gameId].choices });
+    io.to(gameId).emit('updatePlayers', {
+      players: games[gameId].players.map(p => p.name),
+      choices: games[gameId].choices
+    });
   });
 
   // Join game
@@ -62,7 +65,10 @@ io.on('connection', (socket) => {
     socket.join(gameId);
     socket.playerName = playerName;
     socket.gameId = gameId;
-    io.to(gameId).emit('updatePlayers', { players: games[gameId].players.map(p => p.name), choices: games[gameId].choices });
+    io.to(gameId).emit('updatePlayers', {
+      players: games[gameId].players.map(p => p.name),
+      choices: games[gameId].choices
+    });
     callback({ success: true });
 
     // Start round if all players have joined
@@ -76,12 +82,19 @@ io.on('connection', (socket) => {
   socket.on('submitChoice', ({ gameId, playerName, element }) => {
     if (!games[gameId] || games[gameId].status !== 'playing') return;
     games[gameId].choices[playerName] = element;
-    io.to(gameId).emit('updatePlayers', { players: games[gameId].players.map(p => p.name), choices: games[gameId].choices });
+    io.to(gameId).emit('updatePlayers', {
+      players: games[gameId].players.map(p => p.name),
+      choices: games[gameId].choices
+    });
 
     if (Object.keys(games[gameId].choices).length === games[gameId].players.length) {
       const result = calculateResult(games[gameId].choices, games[gameId].players);
       games[gameId].status = 'result';
-      io.to(gameId).emit('showResult', { result, choices: games[gameId].choices, round: games[gameId].round });
+      io.to(gameId).emit('showResult', {
+        result,
+        choices: games[gameId].choices,
+        round: games[gameId].round
+      });
     }
   });
 
@@ -92,7 +105,10 @@ io.on('connection', (socket) => {
     games[gameId].status = 'playing';
     games[gameId].choices = {};
     io.to(gameId).emit('startRound', { round: games[gameId].round });
-    io.to(gameId).emit('updatePlayers', { players: games[gameId].players.map(p => p.name), choices: games[gameId].choices });
+    io.to(gameId).emit('updatePlayers', {
+      players: games[gameId].players.map(p => p.name),
+      choices: games[gameId].choices
+    });
   });
 
   // New game
@@ -109,7 +125,8 @@ io.on('connection', (socket) => {
   });
 });
 
-// Win conditions
+// Win conditions and result calculation unchanged...
+
 const winConditions = {
   Fire: ['Earth', 'Ether'],
   Water: ['Fire', 'Earth'],
@@ -126,7 +143,6 @@ const winDescriptions = {
   Ether: { Air: 'transcends', Fire: 'controls' }
 };
 
-// Calculate result
 function calculateResult(choices, players) {
   let result = '';
   let explanation = [];
@@ -141,23 +157,24 @@ function calculateResult(choices, players) {
     for (let player of players) {
       let isWinner = true;
       for (let otherPlayer of players) {
-        if (otherPlayer.name !== player.name && winConditions[choices[otherPlayer.name]]?.includes(choices[player.name])) {
+        if (otherPlayer.name !== player.name &&
+            winConditions[choices[otherPlayer.name]]?.includes(choices[player.name])) {
           isWinner = false;
           break;
         }
       }
       if (isWinner) winners.push({ player: player.name, element: choices[player.name] });
     }
-    if (winners.length === 0) {
+    if (!winners.length) {
       result = 'Draw! No dominant element.';
       explanation.push(`The choices (${uniqueChoices.join(', ')}) form a cycle or no element beats all others.`);
     } else {
-      result = `Winner(s): ${winners.map(w => `${w.player} (${w.element})`).join(', ')}`;
+      result = `Winner(s): ${winners.map(w => \`\${w.player} (\${w.element})\`).join(', ')}`;
       winners.forEach(w => {
-        let beats = players
+        const beatsList = players
           .filter(p => p.name !== w.player && winConditions[w.element].includes(choices[p.name]))
-          .map(p => `${w.element} ${winDescriptions[w.element][choices[p.name]]} ${choices[p.name]} (${p.name})`);
-        explanation.push(`${w.player} wins: ${beats.join(', ')}`);
+          .map(p => \`\${w.element} \${winDescriptions[w.element][choices[p.name]]} \${choices[p.name]} (\${p.name})\`);
+        explanation.push(\`\${w.player} wins: \${beatsList.join(', ')}\`);
       });
     }
   } else {
@@ -165,28 +182,26 @@ function calculateResult(choices, players) {
     for (let player of players) {
       let isWinner = true;
       for (let otherPlayer of players) {
-        if (otherPlayer.name !== player.name && winConditions[choices[otherPlayer.name]]?.includes(choices[player.name])) {
+        if (otherPlayer.name !== player.name &&
+            winConditions[choices[otherPlayer.name]]?.includes(choices[player.name])) {
           isWinner = false;
           break;
         }
       }
       if (isWinner) winners.push({ player: player.name, element: choices[player.name] });
     }
-
-    if (winners.length === 0 || winners.length === players.length) {
+    if (!winners.length || winners.length === players.length) {
       result = 'Draw! No clear winner.';
-      if (winners.length === 0) {
-        explanation.push(`No element is unbeaten; each is countered by another.`);
-      } else {
-        explanation.push(`All players are unbeaten, resulting in a tie.`);
-      }
+      explanation.push(!winners.length
+        ? `No element is unbeaten; each is countered by another.`
+        : `All players are unbeaten, resulting in a tie.`);
     } else {
-      result = `Winner(s): ${winners.map(w => `${w.player} (${w.element})`).join(', ')}`;
+      result = `Winner(s): ${winners.map(w => \`\${w.player} (\${w.element})\`).join(', ')}`;
       winners.forEach(w => {
-        let beats = players
+        const beatsList = players
           .filter(p => p.name !== w.player && winConditions[w.element].includes(choices[p.name]))
-          .map(p => `${w.element} ${winDescriptions[w.element][choices[p.name]]} ${choices[p.name]} (${p.name})`);
-        explanation.push(`${w.player} wins: ${beats.join(', ')}`);
+          .map(p => \`\${w.element} \${winDescriptions[w.element][choices[p.name]]} \${choices[p.name]} (\${p.name})\`);
+        explanation.push(\`\${w.player} wins: \${beatsList.join(', ')}\`);
       });
     }
   }
