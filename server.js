@@ -9,10 +9,8 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Serve static files from current directory
 app.use(express.static(__dirname));
 
-// Serve index.html on root access
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -97,7 +95,7 @@ function evaluateGame(choices) {
   const winners = players.filter(p => results[p] === maxScore);
   let resultText = winners.length === 1
     ? `${winners[0]} wins!`
-    : 'It's a draw!';
+    : "It's a draw!";
 
   players.forEach((p1) => {
     players.forEach((p2) => {
