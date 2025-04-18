@@ -129,7 +129,6 @@
     let selectedLanguage = 'en';
 
     // DOM Elements
-startScreen.classList.remove('hidden');
 
     const errorScreen = document.getElementById('error-screen');
     const languageScreen = document.getElementById('language-screen');
@@ -156,6 +155,8 @@ startScreen.classList.remove('hidden');
     const nextRoundBtn = document.getElementById('next-round');
     const newGameBtn = document.getElementById('new-game');
     const retryConnectionBtn = document.getElementById('retry-connection');
+
+        startScreen.classList.remove('hidden');
 
     // Show error screen
     function showErrorScreen() {
