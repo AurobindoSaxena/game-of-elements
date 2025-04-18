@@ -40,7 +40,9 @@
     </div>
 
     <!-- Lobby Screen -->
-    <div id="lobby-screen" class="hidden text-center">
+    <div id="lobby-screen"
+    <p class="mb-2"><strong>Game ID:</strong> <span id="display-game-id"></span></p>
+ class="hidden text-center">
       <h2 class="text-2xl font-bold mb-4">Game Lobby</h2>
       <p id="game-link" class="mb-4 break-all"></p>
       <p class="mb-2">Players:</p>
@@ -51,6 +53,8 @@
     <!-- Game Screen -->
     <div id="game-screen" class="hidden text-center">
       <h2 class="text-2xl font-bold mb-4">Round <span id="round-number">1</span></h2>
+      <p class="mb-4"><strong>Players:</strong> <span id="players-in-game"></span></p>
+
       <p id="current-player" class="mb-4"></p>
       <select id="element-select" class="w-full p-2 mb-4 border rounded">
         <option value="" disabled selected>Select an element</option>
@@ -102,6 +106,14 @@
     let playerName = null;
     let round = 1;
 
+    // Prefill game ID if present in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const prefilledGameId = urlParams.get('gameId');
+    if (prefilledGameId) {
+      gameIdInput.value = prefilledGameId;
+    }
+
+
     // Show rules screen first
     rulesScreen.classList.remove('hidden');
 
@@ -115,6 +127,7 @@
     createGameBtn.addEventListener('click', () => {
       socket.emit('createGame', (data) => {
         gameId = data.gameId;
+        document.getElementById('display-game-id').innerText = gameId;
         gameLink.innerHTML = `Share this link: <a href="${data.link}" target="_blank">${data.link}</a>`;
         startScreen.classList.add('hidden');
         lobbyScreen.classList.remove('hidden');
@@ -131,6 +144,7 @@
       socket.emit('joinGame', { gameId: id, playerName: name }, (res) => {
         if (res.error) return alert(res.error);
         gameId = id;
+        document.getElementById('display-game-id').innerText = gameId;
         gameLink.innerHTML = `Share this link: <a href="?gameId=${gameId}" target="_blank">${window.location.origin}?gameId=${gameId}</a>`;
         startScreen.classList.add('hidden');
         lobbyScreen.classList.remove('hidden');
@@ -138,8 +152,15 @@
     });
 
     // Update players list
+    
     socket.on('updatePlayers', (players) => {
+      // update lobby list
+    
       playerList.innerHTML = players.map(p => `<li>${p}</li>`).join('');
+      // update game screen players list
+      const playersSpan = document.getElementById('players-in-game');
+      if (playersSpan) playersSpan.textContent = players.join(', ');
+    
     });
 
     // Start round
@@ -162,6 +183,7 @@
       if (!element) return alert('Select an element');
       socket.emit('submitChoice', { gameId, playerName, element });
       submitChoiceBtn.disabled = true;
+      submitChoiceBtn.classList.add('hidden');
       currentPlayerText.textContent = 'Waiting for others...';
     });
 
