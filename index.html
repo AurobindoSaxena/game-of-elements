@@ -9,18 +9,35 @@
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
 <div id="game-container" class="bg-white p-6 rounded shadow w-full max-w-md text-center">
-  <div id="start-screen">
+
+  <!-- Game Title and Rules -->
+  <div id="rules-screen">
+    <h1 class="text-2xl font-bold mb-4">Game of Elements</h1>
+    <div class="text-left mb-4">
+      <h2 class="font-semibold">Rules:</h2>
+      <ul class="list-disc list-inside text-left">
+        <li>Fire burns Earth and purifies Ether</li>
+        <li>Water extinguishes Fire and erodes Earth</li>
+        <li>Earth grounds Air and absorbs Water</li>
+        <li>Air disrupts Water and scatters Ether</li>
+        <li>Ether transcends Air and controls Fire</li>
+      </ul>
+    </div>
     <input id="player-name" placeholder="Enter Your Name" class="border p-2 rounded w-full mb-2"/>
     <button id="create-game" class="bg-blue-500 text-white p-2 rounded">Create Game</button>
     <input id="game-id" placeholder="Game ID" class="border p-2 rounded w-full mt-4 mb-2"/>
     <button id="join-game" class="bg-green-500 text-white p-2 rounded">Join Game</button>
   </div>
+
+  <!-- Lobby Screen -->
   <div id="lobby-screen" class="hidden">
     <p><strong>Game ID:</strong> <span id="display-game-id"></span></p>
     <p id="game-link"></p>
     <ul id="player-list"></ul>
     <button id="start-round" class="bg-green-500 text-white p-2 rounded">Start Round</button>
   </div>
+
+  <!-- Game Screen -->
   <div id="game-screen" class="hidden">
     <p>Round <span id="round-number"></span></p>
     <p><strong>Players:</strong> <span id="players-in-game"></span></p>
@@ -29,15 +46,98 @@
     </select>
     <button id="submit-choice" class="bg-purple-500 text-white p-2 rounded">Submit Choice</button>
   </div>
-  <div id="result-screen" class="hidden text-left"><div id="result-text"></div>
+
+  <!-- Result Screen -->
+  <div id="result-screen" class="hidden text-left">
+    <div id="result-text"></div>
     <button id="next-round" class="bg-green-500 text-white p-2 rounded">Next Round</button>
   </div>
 </div>
+
 <script>
 const socket = io();
 let gameId, playerName;
-const el=id=>document.getElementById(id);
-// All event handlers correctly implemented here (as per previous correct snippets)
-// For brevity, handlers are condensed but include fixes explicitly implemented above.
+const el = id => document.getElementById(id);
+
+// Create Game Handler
+el('create-game').onclick = () => {
+  playerName = el('player-name').value.trim();
+  if (!playerName) return alert('Please enter your name.');
+  socket.emit('createGame', (data) => {
+    gameId = data.gameId;
+    el('display-game-id').innerText = gameId;
+    el('game-link').innerHTML = `Share this link: <a href="${data.link}">${data.link}</a>`;
+    socket.emit('joinGame', { gameId, playerName }, (res) => {
+      if (res.error) return alert(res.error);
+      el('rules-screen').classList.add('hidden');
+      el('lobby-screen').classList.remove('hidden');
+    });
+  });
+};
+
+// Join Game Handler
+el('join-game').onclick = () => {
+  const id = el('game-id').value.trim();
+  const name = el('player-name').value.trim();
+  if (!id || !name) return alert('Please enter Game ID and your name.');
+  gameId = id;
+  playerName = name;
+  el('display-game-id').innerText = gameId;
+  socket.emit('joinGame', { gameId, playerName }, (res) => {
+    if (res.error) return alert(res.error);
+    el('game-link').innerHTML = `Share this link: <a href="?gameId=${gameId}" target="_blank">${window.location.origin}?gameId=${gameId}</a>`;
+    el('rules-screen').classList.add('hidden');
+    el('lobby-screen').classList.remove('hidden');
+  });
+};
+
+// Update Players
+socket.on('updatePlayers', (players) => {
+  el('player-list').innerHTML = players.map(p => `<li>${p}</li>`).join('');
+  if (el('players-in-game')) el('players-in-game').textContent = players.join(', ');
+});
+
+// Start Round
+el('start-round').onclick = () => {
+  socket.emit('startRound', { gameId });
+};
+
+socket.on('startRound', ({ round }) => {
+  el('lobby-screen').classList.add('hidden');
+  el('game-screen').classList.remove('hidden');
+  el('round-number').textContent = round;
+  el('element-select').value = '';
+  el('submit-choice').disabled = false;
+  el('submit-choice').classList.remove('hidden');
+});
+
+// Submit Choice
+el('submit-choice').onclick = () => {
+  const element = el('element-select').value;
+  if (!element) return alert('Select an element.');
+  socket.emit('submitChoice', { gameId, playerName, element });
+  el('submit-choice').disabled = true;
+  el('submit-choice').classList.add('hidden');
+};
+
+// Show Result
+socket.on('showResult', ({ result, choices, round }) => {
+  el('game-screen').classList.add('hidden');
+  el('result-screen').classList.remove('hidden');
+  el('round-number').textContent = round;
+  const playersList = Object.keys(choices).join(', ');
+  let htmlContent = `<p><strong>Players:</strong> ${playersList}</p>`;
+  htmlContent += `<p><strong>${result.result}</strong></p><br>`;
+  htmlContent += '<p><strong>Choices:</strong> ' + Object.entries(choices).map(([p, e]) => `${p}: ${e}`).join(', ') + '</p><br>';
+  htmlContent += '<p><strong>Details:</strong></p><ul>' + result.explanation.map(line => `<li>${line}</li>`).join('') + '</ul>';
+  el('result-text').innerHTML = htmlContent;
+});
+
+// Next Round
+el('next-round').onclick = () => {
+  el('result-screen').classList.add('hidden');
+  socket.emit('nextRound', { gameId });
+};
 </script>
-</body></html>
+</body>
+</html>
