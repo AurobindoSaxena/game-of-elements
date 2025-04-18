@@ -28,7 +28,7 @@ io.on('connection', (socket) => {
     socket.join(gameId);
     socket.playerName = playerName;
     socket.gameId = gameId;
-    callback({ gameId, link: `https://${process.env.DOMAIN||'localhost:3000'}/game/${gameId}` });
+    callback({ gameId });
     io.to(gameId).emit('updatePlayers', { players: games[gameId].players.map(p=>p.name), choices: games[gameId].choices });
   });
 

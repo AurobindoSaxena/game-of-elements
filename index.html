@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Game of Elements</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
   <div id="game-container" class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
@@ -22,7 +22,7 @@
         <li>Elements: <strong>Fire</strong>, <strong>Water</strong>, <strong>Earth</strong>, <strong>Air</strong>, <strong>Ether</strong>.</li>
         <li><strong>Win Conditions:</strong> Fire beats Earth (burns) and Ether (purifies); Water beats Fire (extinguishes) and Earth (erodes); Earth beats Air (grounds) and Water (absorbs); Air beats Water (disrupts) and Ether (scatters); Ether beats Air (transcends) and Fire (controls).</li>
       </ul>
-      <input type="text" id="player-name" placeholder="Enter Your Name" class="w-full p-2 mb-2 border rounded">
+      <input id="player-name" type="text" placeholder="Enter Your Name" class="w-full p-2 mb-2 border rounded">
       <select id="total-players" class="w-full p-2 mb-2 border rounded">
         <option value="" disabled selected>Select Total Players</option>
         <option value="2">2</option>
@@ -32,13 +32,13 @@
       </select>
       <button id="create-game" class="bg-blue-500 text-white px-4 py-2 rounded mb-4">Create Game</button>
       <p>Or join:</p>
-      <input type="text" id="game-id" placeholder="Enter Game ID" class="w-full p-2 mb-2 border rounded">
+      <input id="game-id" type="text" placeholder="Enter Game ID" class="w-full p-2 mb-2 border rounded">
       <button id="join-game" class="bg-green-500 text-white px-4 py-2 rounded">Join Game</button>
     </div>
     <div id="game-screen" class="hidden text-center">
       <h2 class="text-2xl font-bold mb-4">Round <span id="round-number">1</span></h2>
       <p id="current-player"></p>
-      <p id="game-link" class="break-all"></p>
+      <p id="game-link" class="break-all mb-4"></p>
       <select id="element-select" class="w-full p-2 mb-2 border rounded">
         <option value="" disabled selected>Select element</option>
         <option>Fire</option><option>Water</option><option>Earth</option><option>Air</option><option>Ether</option>
@@ -50,7 +50,7 @@
       <h2 class="text-2xl font-bold mb-4">Result</h2>
       <p id="result-text" class="text-left mb-4"></p>
       <p>Next round in <span id="timer-seconds">30</span>s</p>
-      <button id="next-round" class="bg-green-500 text-white px-4 py-2 rounded mt-2">Next</button>
+      <button id="next-round" class="bg-green-500 text-white px-4 py-2 rounded mt-2">Next Round</button>
       <button id="new-game" class="bg-red-500 text-white px-4 py-2 rounded mt-2">New Game</button>
     </div>
   </div>
@@ -79,10 +79,9 @@
     try {
       socket = io();
     } catch {
-      landingScreen.classList.add('hidden');
-      errorScreen.classList.remove('hidden');
+      showScreen(errorScreen, [landingScreen, gameScreen, resultScreen]);
     }
-    
+
     function showScreen(show, hideList) {
       show.classList.remove('hidden');
       hideList.forEach(el => el.classList.add('hidden'));
@@ -106,10 +105,11 @@
         const name = playerNameInput.value.trim();
         const total = totalPlayersSelect.value;
         if (!name || !total) return alert('Enter name & total players');
-        socket.emit('createGame', { playerName: name, totalPlayers: total }, ({ gameId: id, link }) => {
-          window.gameId = id;
+        socket.emit('createGame', { playerName: name, totalPlayers: total }, ({ gameId }) => {
+          window.gameId = gameId;
           currentPlayerText.textContent = name + ', choose an element:';
-          gameLinkText.innerHTML = `<a href="${link}" target="_blank">${link}</a>`;
+          const publicLink = `${window.location.origin}/game/${gameId}`;
+          gameLinkText.innerHTML = `<a href="${publicLink}" target="_blank">${publicLink}</a>`;
           showScreen(gameScreen, [landingScreen, errorScreen, resultScreen]);
         });
       });
@@ -122,13 +122,14 @@
           if (res.error) return alert(res.error);
           window.gameId = id;
           currentPlayerText.textContent = name + ', choose an element:';
-          gameLinkText.innerHTML = `<a href="https://${window.location.host}/game/${id}" target="_blank">${window.location.host}/game/${id}</a>`;
+          const publicLink = `${window.location.origin}/game/${id}`;
+          gameLinkText.innerHTML = `<a href="${publicLink}" target="_blank">${publicLink}</a>`;
           showScreen(gameScreen, [landingScreen, errorScreen, resultScreen]);
         });
       });
 
       socket.on('updatePlayers', ({ players, choices }) => {
-        playerStatus.innerHTML = players.map(p => `<li>${p}${choices[p]?' ✓':''}</li>`).join('');
+        playerStatus.innerHTML = players.map(p => `<li>${p}${choices[p] ? ' ✓' : ''}</li>`).join('');
       });
 
       socket.on('startRound', ({ round }) => {
@@ -147,7 +148,7 @@
 
       socket.on('showResult', ({ result, choices, round }) => {
         roundNumber.textContent = round;
-        resultText.innerHTML = `<strong>${result.result}</strong><br>Choices: ${Object.entries(choices).map(([p,e])=>p+': '+e).join(', ')}<br>Why: ${result.explanation.join('; ')}`;
+        resultText.innerHTML = `<strong>${result.result}</strong><br>Choices: ${Object.entries(choices).map(([p,e]) => p + ': ' + e).join(', ')}<br>Why: ${result.explanation.join('; ')}`;
         showScreen(resultScreen, [landingScreen, gameScreen, errorScreen]);
         startTimer();
       });
