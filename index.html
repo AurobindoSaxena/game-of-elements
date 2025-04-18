@@ -1,0 +1,481 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row =>
+                    row.some(cell => cell !== '' && cell !== null && cell !== undefined)
+                );
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game of Elements - Online Multiplayer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.min.js"></script>
+  <script src="https://unpkg.com/i18next@21.6.14/dist/umd/i18next.min.js"></script>
+  <script src="https://unpkg.com/i18next-browser-languagedetector@6.1.2/dist/umd/i18nextBrowserLanguageDetector.min.js"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+  <div id="game-container" class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+    <!-- Error Screen -->
+    <div id="error-screen" class="hidden text-center text-red-600">
+      <h1 class="text-2xl font-bold mb-4">Connection Error</h1>
+      <p class="mb-4">Unable to connect to the game server. Please ensure the backend is running and try again.</p>
+      <button id="retry-connection" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Retry</button>
+    </div>
+
+    <!-- Language Selection Screen -->
+    <div id="language-screen" class="text-center">
+      <h1 class="text-3xl font-bold mb-4" data-i18n="selectLanguageTitle">Select Language</h1>
+      <select id="language-select" class="w-full p-2 mb-4 border rounded">
+        <option value="en">English</option>
+        <option value="hi">Hindi</option>
+        <option value="es">Spanish</option>
+        <option value="fr">French</option>
+        <option value="de">German</option>
+        <option value="zh">Chinese (Simplified)</option>
+        <option value="ar">Arabic</option>
+        <option value="pt">Portuguese</option>
+        <option value="ru">Russian</option>
+        <option value="ja">Japanese</option>
+        <option value="it">Italian</option>
+        <option value="ko">Korean</option>
+        <option value="bn">Bengali</option>
+        <option value="ta">Tamil</option>
+        <option value="te">Telugu</option>
+        <option value="ur">Urdu</option>
+        <option value="sw">Swahili</option>
+      </select>
+      <button id="continue-language" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600" data-i18n="continue">Continue</button>
+    </div>
+
+    <!-- Rules Screen -->
+    <div id="rules-screen" class="hidden text-center">
+      <h1 class="text-3xl font-bold mb-4" data-i18n="rulesTitle">Game of Elements - Rules</h1>
+      <div class="text-left mb-4">
+        <h2 class="text-xl font-semibold" data-i18n="elementsTitle">Elements:</h2>
+        <ul class="list-disc pl-5"><li data-i18n="elementsList">Fire, Water, Earth, Air, Ether</li></ul>
+        <h2 class="text-xl font-semibold mt-2" data-i18n="winConditionsTitle">Win Conditions:</h2>
+        <ul class="list-disc pl-5" id="win-conditions-list"></ul>
+        <h2 class="text-xl font-semibold mt-2" data-i18n="gameplayTitle">Gameplay:</h2>
+        <ul class="list-disc pl-5" id="gameplay-list"></ul>
+      </div>
+      <button id="continue-rules" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600" data-i18n="continue">Continue</button>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="hidden text-center">
+      <h1 class="text-3xl font-bold mb-4" data-i18n="gameTitle">Game of Elements</h1>
+      <button id="create-game" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mb-4" data-i18n="createGame">Create Game</button>
+      <p class="mb-2" data-i18n="joinGamePrompt">Or join an existing game:</p>
+      <input type="text" id="game-id" placeholder="Enter Game ID" class="w-full p-2 mb-2 border rounded" data-i18n="[placeholder]gameIdPlaceholder">
+      <input type="text" id="player-name" placeholder="Enter Your Name" class="w-full p-2 mb-2 border rounded" data-i18n="[placeholder]playerNamePlaceholder">
+      <button id="join-game" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600" data-i18n="joinGame">Join Game</button>
+    </div>
+
+    <!-- Lobby Screen -->
+    <div id="lobby-screen" class="hidden text-center">
+      <h2 class="text-2xl font-bold mb-4" data-i18n="lobbyTitle">Game Lobby</h2>
+      <p id="game-link" class="mb-4 break-all"></p>
+      <p class="mb-2" data-i18n="playersLabel">Players:</p>
+      <ul id="player-list" class="text-left mb-4"></ul>
+      <button id="start-round" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600" data-i18n="startRound">Start Round</button>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="hidden text-center">
+      <h2 class="text-2xl font-bold mb-4" data-i18n="roundTitle">Round <span id="round-number">1</span></h2>
+      <p id="current-player" class="mb-4"></p>
+      <select id="element-select" class="w-full p-2 mb-4 border rounded">
+        <option value="" disabled selected data-i18n="selectElement">Select an element</option>
+        <option value="Fire" data-i18n="elementFire">Fire</option>
+        <option value="Water" data-i18n="elementWater">Water</option>
+        <option value="Earth" data-i18n="elementEarth">Earth</option>
+        <option value="Air" data-i18n="elementAir">Air</option>
+        <option value="Ether" data-i18n="elementEther">Ether</option>
+      </select>
+      <button id="submit-choice" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600" data-i18n="submitChoice">Submit Choice</button>
+    </div>
+
+    <!-- Result Screen -->
+    <div id="result-screen" class="hidden text-center">
+      <h2 class="text-2xl font-bold mb-4" data-i18n="resultTitle">Round Result</h2>
+      <p id="result-text" class="mb-4 text-left"></p>
+      <button id="next-round" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600" data-i18n="nextRound">Next Round</button>
+      <button id="new-game" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 mt-2" data-i18n="newGame">New Game</button>
+    </div>
+  </div>
+
+  <script>
+    /*
+     * Local Preview Instructions:
+     * 1. Ensure the backend server is running (`node server.js` in the project root).
+     * 2. Serve this file using a local server, e.g.:
+     *    - Python: `python -m http.server 8000`
+     *    - Node.js: Install `http-server` (`npm i -g http-server`) and run `http-server -p 8000`
+     * 3. Access at `http://localhost:8000`.
+     * 4. If errors persist, check console logs and ensure CDNs are accessible.
+     */
+
+    // Initialize i18next
+    i18next
+      .use(i18nextBrowserLanguageDetector)
+      .init({
+        fallbackLng: 'en',
+        resources: {
+          en: {
+            translation: {
+              selectLanguageTitle: 'Select Language',
+              continue: 'Continue',
+              rulesTitle: 'Game of Elements - Rules',
+              elementsTitle: 'Elements',
+              elementsList: 'Fire, Water, Earth, Air, Ether',
+              winConditionsTitle: 'Win Conditions',
+              winConditions: [
+                'Fire burns Earth and purifies Ether',
+                'Water extinguishes Fire and erodes Earth',
+                'Earth grounds Air and absorbs Water',
+                'Air disrupts Water and scatters Ether',
+                'Ether transcends Air and controls Fire'
+              ],
+              gameplayTitle: 'Gameplay',
+              gameplay: [
+                'Create a game to get a shareable link or join via a link.',
+                'Up to 5 players join with unique names.',
+                'Each player secretly selects an element. Choices are revealed only after all submit.',
+                'A player wins if their element beats all others. Draws occur if all choose the same element or no element dominates.',
+                'Play multiple rounds or start a new game.'
+              ],
+              gameTitle: 'Game of Elements',
+              createGame: 'Create Game',
+              joinGamePrompt: 'Or join an existing game:',
+              gameIdPlaceholder: 'Enter Game ID',
+              playerNamePlaceholder: 'Enter Your Name',
+              joinGame: 'Join Game',
+              lobbyTitle: 'Game Lobby',
+              playersLabel: 'Players',
+              startRound: 'Start Round',
+              roundTitle: 'Round',
+              selectElement: 'Select an element',
+              elementFire: 'Fire',
+              elementWater: 'Water',
+              elementEarth: 'Earth',
+              elementAir: 'Air',
+              elementEther: 'Ether',
+              submitChoice: 'Submit Choice',
+              resultTitle: 'Round Result',
+              nextRound: 'Next Round',
+              newGame: 'New Game',
+              waitingForPlayers: 'Waiting for other players...',
+              choicesLabel: 'Choices',
+              whyLabel: 'Why',
+              shareLink: 'Share this link',
+              shareOnWhatsApp: 'Share on WhatsApp',
+              enterGameIdAndName: 'Please enter a game ID and player name.'
+            }
+          },
+          hi: {
+            translation: {
+              selectLanguageTitle: 'भाषा चुनें',
+              continue: 'जारी रखें',
+              rulesTitle: 'तत्वों का खेल - नियम',
+              elementsTitle: 'तत्व',
+              elementsList: 'अग्नि, जल, पृथ्वी, वायु, आकाश',
+              winConditionsTitle: 'जीत की शर्तें',
+              winConditions: [
+                'अग्नि पृथ्वी को जलाती है और आकाश को शुद्ध करती है',
+                'जल अग्नि को बुझाता है और पृथ्वी को कटाव करता है',
+                'पृथ्वी वायु को स्थिर करती है और जल को अवशोषित करती है',
+                'वायु जल को बाधित करती है और आकाश को तितर-बितर करती है',
+                'आकाश वायु को पार करता है और अग्नि को नियंत्रित करता है'
+              ],
+              gameplayTitle: 'गेमप्ले',
+              gameplay: [
+                'एक गेम बनाएं और शेयर करने योग्य लिंक प्राप्त करें या लिंक के माध्यम से शामिल हों।',
+                '5 खिलाड़ी तक अद्वितीय नामों के साथ शामिल हो सकते हैं।',
+                'प्रत्येक खिलाड़ी गुप्त रूप से एक तत्व चुनता है। सभी के सबमिट करने के बाद ही विकल्प प्रकट होते हैं।',
+                'यदि एक खिलाड़ी का तत्व सभी अन्य को हराता है, तो वह जीतता है। यदि सभी एक ही तत्व चुनते हैं या कोई तत्व प्रबल नहीं होता, तो ड्रॉ होता है।',
+                'कई राउंड खेलें या नया गेम शुरू करें।'
+              ],
+              gameTitle: 'तत्वों का खेल',
+              createGame: 'गेम बनाएं',
+              joinGamePrompt: 'या किसी मौजूदा गेम में शामिल हों:',
+              gameIdPlaceholder: 'गेम आईडी दर्ज करें',
+              playerNamePlaceholder: 'अपना नाम दर्ज करें',
+              joinGame: 'गेम में शामिल हों',
+              lobbyTitle: 'गेम लॉबी',
+              playersLabel: 'खिलाड़ी',
+              startRound: 'राउंड शुरू करें',
+              roundTitle: 'राउंड',
+              selectElement: 'एक तत्व चुनें',
+              elementFire: 'अग्नि',
+              elementWater: 'जल',
+              elementEarth: 'पृथ्वी',
+              elementAir: 'वायु',
+              elementEther: 'आकाश',
+              submitChoice: 'विकल्प सबमिट करें',
+              resultTitle: 'राउंड परिणाम',
+              nextRound: 'अगला राउंड',
+              newGame: 'नया गेम',
+              waitingForPlayers: 'अन्य खिलाड़ियों की प्रतीक्षा कर रहे हैं...',
+              choicesLabel: 'विकल्प',
+              whyLabel: 'क्यों',
+              shareLink: 'इस लिंक को साझा करें',
+              shareOnWhatsApp: 'व्हाट्सएप पर साझा करें',
+              enterGameIdAndName: 'कृपया गेम आईडी और खिलाड़ी का नाम दर्ज करें।'
+            }
+          },
+          es: { translation: { /* Spanish translations (placeholder) */ } },
+          fr: { translation: { /* French translations (placeholder) */ } },
+          de: { translation: { /* German translations (placeholder) */ } },
+          zh: { translation: { /* Chinese translations (placeholder) */ } },
+          ar: { translation: { /* Arabic translations (placeholder) */ } },
+          pt: { translation: { /* Portuguese translations (placeholder) */ } },
+          ru: { translation: { /* Russian translations (placeholder) */ } },
+          ja: { translation: { /* Japanese translations (placeholder) */ } },
+          it: { translation: { /* Italian translations (placeholder) */ } },
+          ko: { translation: { /* Korean translations (placeholder) */ } },
+          bn: { translation: { /* Bengali translations (placeholder) */ } },
+          ta: { translation: { /* Tamil translations (placeholder) */ } },
+          te: { translation: { /* Telugu translations (placeholder) */ } },
+          ur: { translation: { /* Urdu translations (placeholder) */ } },
+          sw: { translation: { /* Swahili translations (placeholder) */ } }
+        }
+      }, (err) => {
+        if (err) console.error('i18next initialization failed:', err);
+        updateUI();
+      });
+
+    // Socket.IO connection with error handling
+    let socket;
+    try {
+      socket = io({ transports: ['websocket', 'polling'] });
+    } catch (e) {
+      console.error('Socket.IO initialization failed:', e);
+      showErrorScreen();
+    }
+
+    let gameId = null;
+    let playerName = null;
+    let selectedLanguage = 'en';
+
+    // DOM Elements
+    const errorScreen = document.getElementById('error-screen');
+    const languageScreen = document.getElementById('language-screen');
+    const rulesScreen = document.getElementById('rules-screen');
+    const startScreen = document.getElementById('start-screen');
+    const lobbyScreen = document.getElementById('lobby-screen');
+    const gameScreen = document.getElementById('game-screen');
+    const resultScreen = document.getElementById('result-screen');
+    const languageSelect = document.getElementById('language-select');
+    const continueLanguageBtn = document.getElementById('continue-language');
+    const continueRulesBtn = document.getElementById('continue-rules');
+    const createGameBtn = document.getElementById('create-game');
+    const joinGameBtn = document.getElementById('join-game');
+    const gameIdInput = document.getElementById('game-id');
+    const playerNameInput = document.getElementById('player-name');
+    const gameLink = document.getElementById('game-link');
+    const playerList = document.getElementById('player-list');
+    const startRoundBtn = document.getElementById('start-round');
+    const currentPlayerText = document.getElementById('current-player');
+    const roundNumber = document.getElementById('round-number');
+    const elementSelect = document.getElementById('element-select');
+    const submitChoiceBtn = document.getElementById('submit-choice');
+    const resultText = document.getElementById('result-text');
+    const nextRoundBtn = document.getElementById('next-round');
+    const newGameBtn = document.getElementById('new-game');
+    const retryConnectionBtn = document.getElementById('retry-connection');
+
+    // Show error screen
+    function showErrorScreen() {
+      languageScreen.classList.add('hidden');
+      errorScreen.classList.remove('hidden');
+    }
+
+    // Retry connection
+    retryConnectionBtn.addEventListener('click', () => {
+      errorScreen.classList.add('hidden');
+      languageScreen.classList.remove('hidden');
+      try {
+        socket = io({ transports: ['websocket', 'polling'] });
+        bindSocketEvents();
+      } catch (e) {
+        console.error('Socket.IO retry failed:', e);
+        showErrorScreen();
+      }
+    });
+
+    // Update UI with translations
+    function updateUI() {
+      document.querySelectorAll('[data-i18n]').forEach(element => {
+        const key = element.getAttribute('data-i18n');
+        if (key.startsWith('[placeholder]')) {
+          const placeholderKey = key.replace('[placeholder]', '');
+          element.placeholder = i18next.t(placeholderKey);
+        } else {
+          element.innerHTML = i18next.t(key);
+        }
+      });
+
+      // Explicitly update buttons
+      continueLanguageBtn.innerHTML = i18next.t('continue');
+      continueRulesBtn.innerHTML = i18next.t('continue');
+
+      // Update dynamic lists
+      const winConditionsList = document.getElementById('win-conditions-list');
+      winConditionsList.innerHTML = i18next.t('winConditions').map(condition => `<li>${condition}</li>`).join('');
+      const gameplayList = document.getElementById('gameplay-list');
+      gameplayList.innerHTML = i18next.t('gameplay').map(rule => `<li>${rule}</li>`).join('');
+
+      // Update element select options
+      const elementOptions = elementSelect.querySelectorAll('option');
+      elementOptions.forEach(option => {
+        const key = option.getAttribute('data-i18n');
+        if (key) option.text = i18next.t(key);
+      });
+    }
+
+    // Language Selection
+    languageSelect.addEventListener('change', (e) => {
+      selectedLanguage = e.target.value;
+      i18next.changeLanguage(selectedLanguage, (err) => {
+        if (err) console.error('Language change failed:', err);
+        updateUI();
+      });
+    });
+
+    // Continue from Language
+    continueLanguageBtn.addEventListener('click', () => {
+      languageScreen.classList.add('hidden');
+      rulesScreen.classList.remove('hidden');
+    });
+
+    // Socket.IO event bindings
+    function bindSocketEvents() {
+      // Connection error handling
+      socket.on('connect_error', (err) => {
+        console.error('Socket.IO connection error:', err);
+        showErrorScreen();
+      });
+
+      // Create Game
+      createGameBtn.addEventListener('click', () => {
+        socket.emit('createGame', ({ gameId, link }) => {
+          gameId = gameId;
+          gameLink.innerHTML = `${i18next.t('shareLink')}: <a href="${link}" target="_blank">${link}</a> | <a href="https://api.whatsapp.com/send?text=${encodeURIComponent(`${i18next.t('joinGameMessage')} ${link}`)}" target="_blank">${i18next.t('shareOnWhatsApp')}</a>`;
+          startScreen.classList.add('hidden');
+          lobbyScreen.classList.remove('hidden');
+        });
+      });
+
+      // Join Game
+      joinGameBtn.addEventListener('click', () => {
+        gameId = gameIdInput.value.trim();
+        playerName = playerNameInput.value.trim();
+        if (!gameId || !playerName) {
+          alert(i18next.t('enterGameIdAndName'));
+          return;
+        }
+        socket.emit('joinGame', { gameId, playerName, language: selectedLanguage }, (response) => {
+          if (response.error) {
+            alert(response.error);
+            return;
+          }
+          gameLink.innerHTML = `${i18next.t('shareLink')}: <a href="https://${window.location.host}/game/${gameId}" target="_blank">https://${window.location.host}/game/${gameId}</a> | <a href="https://api.whatsapp.com/send?text=${encodeURIComponent(`${i18next.t('joinGameMessage')} https://${window.location.host}/game/${gameId}`)}" target="_blank">${i18next.t('shareOnWhatsApp')}</a>`;
+          startScreen.classList.add('hidden');
+          lobbyScreen.classList.remove('hidden');
+        });
+      });
+
+      // Update Players
+      socket.on('updatePlayers', (players) => {
+        playerList.innerHTML = players.map(p => `<li>${p}</li>`).join('');
+      });
+
+      // Start Round
+      startRoundBtn.addEventListener('click', () => {
+        socket.emit('startRound', { gameId });
+      });
+
+      socket.on('startRound', ({ round }) => {
+        lobbyScreen.classList.add('hidden');
+        gameScreen.classList.remove('hidden');
+        roundNumber.textContent = round;
+        currentPlayerText.textContent = `${playerName}, ${i18next.t('selectElement').toLowerCase()}:`;
+        elementSelect.value = '';
+      });
+
+      // Submit Choice
+      submitChoiceBtn.addEventListener('click', () => {
+        const element = elementSelect.value;
+        if (!element) {
+          alert(i18next.t('selectElement'));
+          return;
+        }
+        socket.emit('submitChoice', { gameId, playerName, element });
+        submitChoiceBtn.disabled = true;
+        currentPlayerText.textContent = i18next.t('waitingForPlayers');
+      });
+
+      // Show Result
+      socket.on('showResult', ({ result, choices, round }) => {
+        gameScreen.classList.add('hidden');
+        resultScreen.classList.remove('hidden');
+        roundNumber.textContent = round;
+        let resultHtml = result.result;
+        resultHtml += `<br><br><strong>${i18next.t('choicesLabel')}:</strong> ` + Object.entries(choices).map(([p, e]) => `${p}: ${i18next.t(`element${e}`)}`).join(', ');
+        resultHtml += `<br><br><strong>${i18next.t('whyLabel')}:</strong> ` + result.explanation.join('; ');
+        resultText.innerHTML = resultHtml;
+        submitChoiceBtn.disabled = false;
+      });
+
+      // Next Round
+      nextRoundBtn.addEventListener('click', () => {
+        socket.emit('nextRound', { gameId });
+      });
+
+      // New Game
+      newGameBtn.addEventListener('click', () => {
+        socket.emit('newGame', { gameId });
+      });
+
+      socket.on('resetGame', () => {
+        resultScreen.classList.add('hidden');
+        lobbyScreen.classList.remove('hidden');
+        gameLink.innerHTML = `${i18next.t('shareLink')}: <a href="https://${window.location.host}/game/${gameId}" target="_blank">https://${window.location.host}/game/${gameId}</a> | <a href="https://api.whatsapp.com/send?text=${encodeURIComponent(`${i18next.t('joinGameMessage')} https://${window.location.host}/game/${gameId}`)}" target="_blank">${i18next.t('shareOnWhatsApp')}</a>`;
+      });
+    }
+
+    // Initialize socket events
+    if (socket) bindSocketEvents();
+
+    // Check URL for game ID
+    const urlParams = new URLSearchParams(window.location.search);
+    const id = urlParams.get('gameId') || window.location.pathname.split('/game/')[1];
+    if (id) gameIdInput.value = id;
+  </script>
+</body>
+</html>
