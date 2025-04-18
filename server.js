@@ -125,8 +125,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// Win conditions and result calculation unchanged...
-
+// Win conditions and descriptions
 const winConditions = {
   Fire: ['Earth', 'Ether'],
   Water: ['Fire', 'Earth'],
@@ -143,6 +142,7 @@ const winDescriptions = {
   Ether: { Air: 'transcends', Fire: 'controls' }
 };
 
+// Calculate result without nested template literals
 function calculateResult(choices, players) {
   let result = '';
   let explanation = [];
@@ -150,58 +150,34 @@ function calculateResult(choices, players) {
   const allSame = uniqueChoices.length === 1;
 
   if (allSame) {
-    result = `Draw! All players chose ${choices[players[0].name]}.`;
-    explanation.push(`No one beats another since all selected the same element.`);
-  } else if (uniqueChoices.length === players.length && players.length > 2) {
-    let winners = [];
-    for (let player of players) {
-      let isWinner = true;
-      for (let otherPlayer of players) {
-        if (otherPlayer.name !== player.name &&
-            winConditions[choices[otherPlayer.name]]?.includes(choices[player.name])) {
-          isWinner = false;
-          break;
-        }
-      }
-      if (isWinner) winners.push({ player: player.name, element: choices[player.name] });
-    }
-    if (!winners.length) {
-      result = 'Draw! No dominant element.';
-      explanation.push(`The choices (${uniqueChoices.join(', ')}) form a cycle or no element beats all others.`);
-    } else {
-      result = `Winner(s): ${winners.map(w => \`\${w.player} (\${w.element})\`).join(', ')}`;
-      winners.forEach(w => {
-        const beatsList = players
-          .filter(p => p.name !== w.player && winConditions[w.element].includes(choices[p.name]))
-          .map(p => \`\${w.element} \${winDescriptions[w.element][choices[p.name]]} \${choices[p.name]} (\${p.name})\`);
-        explanation.push(\`\${w.player} wins: \${beatsList.join(', ')}\`);
-      });
-    }
+    result = 'Draw! All players chose ' + choices[players[0].name] + '.';
+    explanation.push('No one beats another since all selected the same element.');
   } else {
     let winners = [];
     for (let player of players) {
       let isWinner = true;
       for (let otherPlayer of players) {
         if (otherPlayer.name !== player.name &&
-            winConditions[choices[otherPlayer.name]]?.includes(choices[player.name])) {
+            winConditions[choices[otherPlayer.name]].includes(choices[player.name])) {
           isWinner = false;
           break;
         }
       }
       if (isWinner) winners.push({ player: player.name, element: choices[player.name] });
     }
+
     if (!winners.length || winners.length === players.length) {
       result = 'Draw! No clear winner.';
       explanation.push(!winners.length
-        ? `No element is unbeaten; each is countered by another.`
-        : `All players are unbeaten, resulting in a tie.`);
+        ? 'No element is unbeaten; each is countered by another.'
+        : 'All players are unbeaten, resulting in a tie.');
     } else {
-      result = `Winner(s): ${winners.map(w => \`\${w.player} (\${w.element})\`).join(', ')}`;
+      result = 'Winner(s): ' + winners.map(w => w.player + ' (' + w.element + ')').join(', ');
       winners.forEach(w => {
         const beatsList = players
           .filter(p => p.name !== w.player && winConditions[w.element].includes(choices[p.name]))
-          .map(p => \`\${w.element} \${winDescriptions[w.element][choices[p.name]]} \${choices[p.name]} (\${p.name})\`);
-        explanation.push(\`\${w.player} wins: \${beatsList.join(', ')}\`);
+          .map(p => w.element + ' ' + winDescriptions[w.element][choices[p.name]] + ' ' + choices[p.name] + ' (' + p.name + ')');
+        explanation.push(w.player + ' wins: ' + beatsList.join(', '));
       });
     }
   }
@@ -210,4 +186,4 @@ function calculateResult(choices, players) {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log('Server running on port ' + PORT));
