@@ -40,9 +40,8 @@
     </div>
 
     <!-- Lobby Screen -->
-    <div id="lobby-screen"
-    <p class="mb-2"><strong>Game ID:</strong> <span id="display-game-id"></span></p>
- class="hidden text-center">
+    <div id="lobby-screen" class="hidden text-center">
+      <p class="mb-2"><strong>Game ID:</strong> <span id="display-game-id"></span></p>
       <h2 class="text-2xl font-bold mb-4">Game Lobby</h2>
       <p id="game-link" class="mb-4 break-all"></p>
       <p class="mb-2">Players:</p>
@@ -123,33 +122,55 @@
       startScreen.classList.remove('hidden');
     });
 
+    
     // Create game
     createGameBtn.addEventListener('click', () => {
+      const name = playerNameInput.value.trim();
+      if (!name) {
+        alert('Please enter your name.');
+        return;
+      }
       socket.emit('createGame', (data) => {
         gameId = data.gameId;
+        playerName = name;  // set creator's name
         document.getElementById('display-game-id').innerText = gameId;
         gameLink.innerHTML = `Share this link: <a href="${data.link}" target="_blank">${data.link}</a>`;
-        startScreen.classList.add('hidden');
-        lobbyScreen.classList.remove('hidden');
+        // automatically join creator into the game
+        socket.emit('joinGame', { gameId, playerName }, (res) => {
+          if (res.error) {
+            alert(res.error);
+            return;
+          }
+          startScreen.classList.add('hidden');
+          lobbyScreen.classList.remove('hidden');
+        });
       });
     });
+});
 
+    
     // Join game
     joinGameBtn.addEventListener('click', () => {
       const id = gameIdInput.value.trim();
       const name = playerNameInput.value.trim();
       if (!id || !name) {
-        return alert('Enter both Game ID and Name');
+        alert('Please enter both Game ID and your name.');
+        return;
       }
-      socket.emit('joinGame', { gameId: id, playerName: name }, (res) => {
-        if (res.error) return alert(res.error);
-        gameId = id;
-        document.getElementById('display-game-id').innerText = gameId;
+      gameId = id;
+      playerName = name;
+      document.getElementById('display-game-id').innerText = gameId;
+      socket.emit('joinGame', { gameId, playerName }, (res) => {
+        if (res.error) {
+          alert(res.error);
+          return;
+        }
         gameLink.innerHTML = `Share this link: <a href="?gameId=${gameId}" target="_blank">${window.location.origin}?gameId=${gameId}</a>`;
         startScreen.classList.add('hidden');
         lobbyScreen.classList.remove('hidden');
       });
     });
+});
 
     // Update players list
     
@@ -175,6 +196,7 @@
       currentPlayerText.textContent = `${playerName || 'Player'}, select an element:`;
       elementSelect.value = '';
       submitChoiceBtn.disabled = false;
+      submitChoiceBtn.classList.remove('hidden');
     });
 
     // Submit choice
