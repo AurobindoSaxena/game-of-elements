@@ -23,10 +23,10 @@ const rules = {
 };
 
 io.on('connection', (socket) => {
-  socket.on('createGame', (callback) => {
+  socket.on('createGame', ({ expectedPlayers }, callback) => {
     const gameId = uuidv4().slice(0, 6);
-    games[gameId] = { players: [], choices: {}, round: 1 };
-    callback({ gameId, link: `${socket.handshake.headers.referer.split('?')[0]}?gameId=${gameId}` });
+    games[gameId] = { players: [], choices: {}, round: 1, expectedPlayers };
+    callback({ gameId, link: \`\${socket.handshake.headers.referer.split('?')[0]}?gameId=\${gameId}\` });
   });
 
   socket.on('joinGame', ({ gameId, playerName }, callback) => {
@@ -78,11 +78,11 @@ function evaluateGame(choices) {
   });
   const maxScore = Math.max(...Object.values(results));
   const winners = players.filter(p => results[p] === maxScore);
-  let resultText = winners.length === 1 ? `${winners[0]} wins!` : "It's a draw!";
+  let resultText = winners.length === 1 ? \`\${winners[0]} wins!\` : "It's a draw!";
   players.forEach(p1 => {
     players.forEach(p2 => {
       if (p1 !== p2 && rules[choices[p1]].includes(choices[p2])) {
-        explanation.push(`${p1}'s ${choices[p1]} beats ${p2}'s ${choices[p2]}`);
+        explanation.push(\`\${p1}'s \${choices[p1]} beats \${p2}'s \${choices[p2]}\`);
       }
     });
   });

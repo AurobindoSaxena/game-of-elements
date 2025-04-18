@@ -7,89 +7,94 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.min.js"></script>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
-<div id="game-container" class="bg-white p-6 rounded shadow w-full max-w-md text-center">
+  <div id="game-container" class="bg-white p-6 rounded shadow w-full max-w-md text-center">
 
-  <!-- Game Title and Rules -->
-  <div id="rules-screen">
-    <h1 class="text-2xl font-bold mb-4">Game of Elements (Envisioned by Aurobindo Saxena)</h1>
-    <div class="text-left mb-4">
-      <h2 class="font-semibold">Game Rules:</h2>
-      <ul class="list-disc list-inside text-left text-sm">
-        <li>Fire: Beats Earth (burns it) and Ether (purifies it); but loses to Water (extinguished) and Air (disrupted).</li>
-        <li>Water: Beats Fire (extinguishes it) and Earth (erodes it); but loses to Air (disrupted) and Ether (transcended).</li>
-        <li>Earth: Beats Air (grounds it) and Water (absorbs it); but loses to Fire (burned), Ether (transcended).</li>
-        <li>Air: Beats Water (disrupts it) and Ether (scatters it); but loses to Earth (grounded), Fire (burned).</li>
-        <li>Ether: Beats Air (transcends it) and Fire (controls it); but loses to Water (eroded), Earth (absorbed).</li>
-      </ul>
+    <!-- Game Title and Rules -->
+    <div id="rules-screen">
+      <h1 class="text-2xl font-bold mb-2">Game of Elements</h1>
+      <p class="text-base mb-4">(Envisioned by Aurobindo Saxena)</p>
+      <div class="text-left mb-4">
+        <h2 class="font-semibold">Game Rules:</h2>
+        <ul class="list-disc list-inside text-left text-sm">
+          <li><strong>Fire:</strong> Beats Earth (burns it) and Ether (purifies it); but loses to Water (extinguished) and Air (disrupted).</li>
+          <li><strong>Water:</strong> Beats Fire (extinguishes it) and Earth (erodes it); but loses to Air (disrupted) and Ether (transcended).</li>
+          <li><strong>Earth:</strong> Beats Air (grounds it) and Water (absorbs it); but loses to Fire (burned) and Ether (transcended).</li>
+          <li><strong>Air:</strong> Beats Water (disrupts it) and Ether (scatters it); but loses to Earth (grounded) and Fire (burned).</li>
+          <li><strong>Ether:</strong> Beats Air (transcends it) and Fire (controls it); but loses to Water (eroded) and Earth (absorbed).</li>
+        </ul>
+      </div>
+      <input id="player-name" placeholder="Enter Your Name" class="border p-2 rounded w-full mb-2" />
+      <select id="expected-players" class="border p-2 rounded w-full mb-2">
+        <option value="">Select Number of Players</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+      </select>
+      <button id="create-game" class="bg-blue-500 text-white p-2 rounded mb-4">Create Game</button>
+      <input id="game-id" placeholder="Game ID" class="border p-2 rounded w-full mb-2" />
+      <button id="join-game" class="bg-green-500 text-white p-2 rounded">Join Game</button>
     </div>
+
+    <!-- Lobby Screen -->
+    <div id="lobby-screen" class="hidden text-center">
+      <p><strong>Game ID:</strong> <span id="display-game-id"></span></p>
+      <p id="game-link"></p>
+      <ul id="player-list" class="text-left mb-2"></ul>
+      <p id="player-count-msg" class="mb-4"></p>
+      <button id="start-round" class="bg-green-500 text-white p-2 rounded hidden">Start Round</button>
     </div>
-    <input id="player-name" placeholder="Enter Your Name" class="border p-2 rounded w-full mb-2"/>
-    <select id="expected-players" class="border p-2 rounded w-full mb-2">
-      <option value="">Select Number of Players</option>
-      <option value="2">2</option>
-      <option value="3">3</option>
-      <option value="4">4</option>
-      <option value="5">5</option>
-    </select>
-    <button id="create-game" class="bg-blue-500 text-white p-2 rounded">Create Game</button>
-    <input id="game-id" placeholder="Game ID" class="border p-2 rounded w-full mt-4 mb-2"/>
-    <button id="join-game" class="bg-green-500 text-white p-2 rounded">Join Game</button>
-  </div>
 
-  <!-- Lobby Screen -->
-  <div id="lobby-screen" class="hidden">
-    <p><strong>Game ID:</strong> <span id="display-game-id"></span></p>
-    <p id="game-link"></p>
-    <ul id="player-list"></ul>
-    <p id="player-count-msg"></p>
-    <button id="start-round" class="bg-green-500 text-white p-2 rounded hidden">Start Round</button>
-  </div>
+    <!-- Game Screen -->
+    <div id="game-screen" class="hidden text-center">
+      <p class="text-lg font-semibold">Round <span id="round-number"></span></p>
+      <p class="mb-2"><strong>Players:</strong> <span id="players-in-game"></span></p>
+      <div id="countdown-timer" class="font-bold text-lg mb-2"></div>
+      <select id="element-select" class="border p-2 rounded w-full mb-2" disabled>
+        <option value="">Select Element</option>
+        <option>Fire</option>
+        <option>Water</option>
+        <option>Earth</option>
+        <option>Air</option>
+        <option>Ether</option>
+      </select>
+      <button id="submit-choice" class="bg-purple-500 text-white p-2 rounded hidden">Submit Choice</button>
+    </div>
 
-  <!-- Game Screen -->
-  <div id="game-screen" class="hidden">
-    <p>Round <span id="round-number"></span></p>
-    <p><strong>Players:</strong> <span id="players-in-game"></span></p>
-    <div id="countdown-timer" class="font-bold text-lg mb-2"></div>
-    <select id="element-select" class="border p-2 rounded w-full mb-2" disabled>
-      <option value="">Select Element</option>
-      <option>Fire</option><option>Water</option><option>Earth</option><option>Air</option><option>Ether</option>
-    </select>
-    <button id="submit-choice" class="bg-purple-500 text-white p-2 rounded hidden">Submit Choice</button>
-  </div>
+    <!-- Result Screen -->
+    <div id="result-screen" class="hidden text-left">
+      <div id="result-text" class="mb-4"></div>
+      <p id="next-round-timer" class="mb-4"></p>
+      <button id="next-round" class="bg-green-500 text-white p-2 rounded hidden">Next Round</button>
+    </div>
 
-  <!-- Result Screen -->
-  <div id="result-screen" class="hidden text-left">
-    <div id="result-text"></div>
-    <p id="next-round-timer"></p>
-    <button id="next-round" class="bg-green-500 text-white p-2 rounded hidden">Next Round</button>
   </div>
-</div>
 
 <script>
-const socket = io();
-let gameId, playerName, expectedPlayers = 2;
-const el = id => document.getElementById(id);
+  document.addEventListener("DOMContentLoaded", () => {
+    const socket = io();
+    let gameId, playerName, expectedPlayers = 2;
+    const el = id => document.getElementById(id);
 
-document.getElementById('create-game').onclick = () => {
-  playerName = el('player-name').value.trim();
-  expectedPlayers = parseInt(el('expected-players').value);
-
-  if (!playerName || isNaN(expectedPlayers) || expectedPlayers < 2) {
-    alert('Please enter your name and select number of players (2-5).');
-    return;
-  }
-
-  socket.emit('createGame', { expectedPlayers }, (data) => {
-    gameId = data.gameId;
-    el('display-game-id').innerText = gameId;
-    el('game-link').innerHTML = `Share this link: <a href="${data.link}">${data.link}</a>`;
-    socket.emit('joinGame', { gameId, playerName }, (res) => {
-      if (res.error) return alert(res.error);
-      el('rules-screen').classList.add('hidden');
-      el('lobby-screen').classList.remove('hidden');
-    });
+    el('create-game').onclick = () => {
+      playerName = el('player-name').value.trim();
+      expectedPlayers = parseInt(el('expected-players').value);
+      if (!playerName || isNaN(expectedPlayers) || expectedPlayers < 2) {
+        alert('Please enter your name and select number of players (2-5).');
+        return;
+      }
+      socket.emit('createGame', { expectedPlayers }, (data) => {
+        gameId = data.gameId;
+        el('display-game-id').innerText = gameId;
+        el('game-link').innerHTML = \`Share this link: <a href="\${data.link}">\${data.link}</a>\`;
+        socket.emit('joinGame', { gameId, playerName }, (res) => {
+          if (res.error) return alert(res.error);
+          el('rules-screen').classList.add('hidden');
+          el('lobby-screen').classList.remove('hidden');
+        });
+      });
+    };
   });
-};
 </script>
 </body>
 </html>
