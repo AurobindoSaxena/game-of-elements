@@ -9,7 +9,6 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static(__dirname));
-
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -74,7 +73,8 @@ function evaluateGame(choices) {
   const explanation = [];
   const players = Object.keys(choices);
   players.forEach(p1 => {
-    results[p1] = players.reduce((count, p2) => count + (p1 !== p2 && rules[choices[p1]].includes(choices[p2]) ? 1 : 0), 0);
+    results[p1] = players.reduce((count, p2) =>
+      count + (p1 !== p2 && rules[choices[p1]].includes(choices[p2]) ? 1 : 0), 0);
   });
   const maxScore = Math.max(...Object.values(results));
   const winners = players.filter(p => results[p] === maxScore);
