@@ -12,7 +12,7 @@
     <div id="error-screen" class="hidden text-center text-red-600">
       <h1 class="text-2xl font-bold mb-4">Connection Error</h1>
       <p class="mb-4">Unable to connect to the game server. Please try again.</p>
-      <button id="retry-connection" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Retry</button>
+      <button id="retry-connection" class="bg-blue-500 text-white px-4 py-2 rounded">Retry</button>
     </div>
     <div id="landing-screen" class="text-center">
       <h1 class="text-3xl font-bold mb-2">Game of Elements</h1>
@@ -21,9 +21,6 @@
       <ul class="text-left mb-4 list-disc pl-5">
         <li>Elements: <strong>Fire</strong>, <strong>Water</strong>, <strong>Earth</strong>, <strong>Air</strong>, <strong>Ether</strong>.</li>
         <li><strong>Win Conditions:</strong> Fire beats Earth (burns) and Ether (purifies); Water beats Fire (extinguishes) and Earth (erodes); Earth beats Air (grounds) and Water (absorbs); Air beats Water (disrupts) and Ether (scatters); Ether beats Air (transcends) and Fire (controls).</li>
-        <li><strong>Gameplay:</strong> 2-5 players join with unique names and secretly choose an element.</li>
-        <li><strong>Outcome:</strong> A player wins if their element beats all others; draws occur if all choose the same element or no element dominates.</li>
-        <li><strong>Rounds:</strong> Play multiple rounds; results show who chose what and why.</li>
       </ul>
       <input type="text" id="player-name" placeholder="Enter Your Name" class="w-full p-2 mb-2 border rounded">
       <select id="total-players" class="w-full p-2 mb-2 border rounded">
@@ -33,56 +30,134 @@
         <option value="4">4</option>
         <option value="5">5</option>
       </select>
-      <button id="create-game" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mb-4">Create Game</button>
-      <p class="mb-2">Or join an existing game:</p>
+      <button id="create-game" class="bg-blue-500 text-white px-4 py-2 rounded mb-4">Create Game</button>
+      <p>Or join:</p>
       <input type="text" id="game-id" placeholder="Enter Game ID" class="w-full p-2 mb-2 border rounded">
-      <button id="join-game" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Join Game</button>
+      <button id="join-game" class="bg-green-500 text-white px-4 py-2 rounded">Join Game</button>
     </div>
     <div id="game-screen" class="hidden text-center">
       <h2 class="text-2xl font-bold mb-4">Round <span id="round-number">1</span></h2>
-      <p id="current-player" class="mb-2"></p>
-      <p id="game-link" class="mb-2 break-all"></p>
+      <p id="current-player"></p>
+      <p id="game-link" class="break-all"></p>
       <select id="element-select" class="w-full p-2 mb-2 border rounded">
-        <option value="" disabled selected>Select an element</option>
-        <option value="Fire">Fire</option>
-        <option value="Water">Water</option>
-        <option value="Earth">Earth</option>
-        <option value="Air">Air</option>
-        <option value="Ether">Ether</option>
+        <option value="" disabled selected>Select element</option>
+        <option>Fire</option><option>Water</option><option>Earth</option><option>Air</option><option>Ether</option>
       </select>
-      <button id="submit-choice" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 mb-4">Submit</button>
-      <p class="mb-2">Players:</p>
-      <ul id="player-status" class="text-left mb-4"></ul>
+      <button id="submit-choice" class="bg-purple-500 text-white px-4 py-2 rounded">Submit</button>
+      <ul id="player-status" class="mt-4 text-left"></ul>
     </div>
     <div id="result-screen" class="hidden text-center">
-      <h2 class="text-2xl font-bold mb-4">Round Result</h2>
-      <p id="result-text" class="mb-4 text-left"></p>
-      <p id="next-round-timer" class="mb-4">Moving to next round in <span id="timer-seconds">30</span> seconds...</p>
-      <button id="next-round" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Next Round</button>
-      <button id="new-game" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 mt-2">New Game</button>
+      <h2 class="text-2xl font-bold mb-4">Result</h2>
+      <p id="result-text" class="text-left mb-4"></p>
+      <p>Next round in <span id="timer-seconds">30</span>s</p>
+      <button id="next-round" class="bg-green-500 text-white px-4 py-2 rounded mt-2">Next</button>
+      <button id="new-game" class="bg-red-500 text-white px-4 py-2 rounded mt-2">New Game</button>
     </div>
   </div>
   <script>
+    const errorScreen = document.getElementById('error-screen');
+    const landingScreen = document.getElementById('landing-screen');
+    const gameScreen = document.getElementById('game-screen');
+    const resultScreen = document.getElementById('result-screen');
+    const playerNameInput = document.getElementById('player-name');
+    const totalPlayersSelect = document.getElementById('total-players');
+    const gameIdInput = document.getElementById('game-id');
+    const createGameBtn = document.getElementById('create-game');
+    const joinGameBtn = document.getElementById('join-game');
+    const currentPlayerText = document.getElementById('current-player');
+    const gameLinkText = document.getElementById('game-link');
+    const roundNumber = document.getElementById('round-number');
+    const elementSelect = document.getElementById('element-select');
+    const submitChoiceBtn = document.getElementById('submit-choice');
+    const playerStatus = document.getElementById('player-status');
+    const resultText = document.getElementById('result-text');
+    const nextRoundBtn = document.getElementById('next-round');
+    const newGameBtn = document.getElementById('new-game');
+    const timerSeconds = document.getElementById('timer-seconds');
+
     let socket;
     try {
-      socket = io({ transports: ['websocket','polling'] });
-    } catch (e) {
-      document.getElementById('landing-screen').classList.add('hidden');
-      document.getElementById('error-screen').classList.remove('hidden');
+      socket = io();
+    } catch {
+      landingScreen.classList.add('hidden');
+      errorScreen.classList.remove('hidden');
     }
-    function bindSocketEvents() {
-      document.getElementById('create-game').addEventListener('click', () -> {
-        const name = document.getElementById('player-name').value.trim();
-        const total = document.getElementById('total-players').value;
+    
+    function showScreen(show, hideList) {
+      show.classList.remove('hidden');
+      hideList.forEach(el => el.classList.add('hidden'));
+    }
+
+    function startTimer() {
+      let sec = 30;
+      timerSeconds.textContent = sec;
+      const interval = setInterval(() => {
+        sec--;
+        timerSeconds.textContent = sec;
+        if (sec <= 0) {
+          clearInterval(interval);
+          socket.emit('nextRound', { gameId });
+        }
+      }, 1000);
+    }
+
+    function bindSocket() {
+      createGameBtn.addEventListener('click', () => {
+        const name = playerNameInput.value.trim();
+        const total = totalPlayersSelect.value;
         if (!name || !total) return alert('Enter name & total players');
-        socket.emit('createGame',{playerName:name,totalPlayers:total},res => {
-          document.getElementById('game-link').innerHTML = `Share: <a href="${res.link}" target="_blank">${res.link}</a>`;
-          document.getElementById('landing-screen').classList.add('hidden');
-          document.getElementById('game-screen').classList.remove('hidden');
+        socket.emit('createGame', { playerName: name, totalPlayers: total }, ({ gameId: id, link }) => {
+          window.gameId = id;
+          currentPlayerText.textContent = name + ', choose an element:';
+          gameLinkText.innerHTML = `<a href="${link}" target="_blank">${link}</a>`;
+          showScreen(gameScreen, [landingScreen, errorScreen, resultScreen]);
         });
       });
+
+      joinGameBtn.addEventListener('click', () => {
+        const name = playerNameInput.value.trim();
+        const id = gameIdInput.value.trim();
+        if (!name || !id) return alert('Enter name & game ID');
+        socket.emit('joinGame', { gameId: id, playerName: name }, res => {
+          if (res.error) return alert(res.error);
+          window.gameId = id;
+          currentPlayerText.textContent = name + ', choose an element:';
+          gameLinkText.innerHTML = `<a href="https://${window.location.host}/game/${id}" target="_blank">${window.location.host}/game/${id}</a>`;
+          showScreen(gameScreen, [landingScreen, errorScreen, resultScreen]);
+        });
+      });
+
+      socket.on('updatePlayers', ({ players, choices }) => {
+        playerStatus.innerHTML = players.map(p => `<li>${p}${choices[p]?' ✓':''}</li>`).join('');
+      });
+
+      socket.on('startRound', ({ round }) => {
+        roundNumber.textContent = round;
+        elementSelect.value = '';
+        submitChoiceBtn.disabled = false;
+        showScreen(gameScreen, [landingScreen, errorScreen, resultScreen]);
+      });
+
+      submitChoiceBtn.addEventListener('click', () => {
+        const elem = elementSelect.value;
+        if (!elem) return alert('Select an element');
+        socket.emit('submitChoice', { gameId, playerName: playerNameInput.value.trim(), element: elem });
+        submitChoiceBtn.disabled = true;
+      });
+
+      socket.on('showResult', ({ result, choices, round }) => {
+        roundNumber.textContent = round;
+        resultText.innerHTML = `<strong>${result.result}</strong><br>Choices: ${Object.entries(choices).map(([p,e])=>p+': '+e).join(', ')}<br>Why: ${result.explanation.join('; ')}`;
+        showScreen(resultScreen, [landingScreen, gameScreen, errorScreen]);
+        startTimer();
+      });
+
+      nextRoundBtn.addEventListener('click', () => socket.emit('nextRound', { gameId }));
+      newGameBtn.addEventListener('click', () => socket.emit('newGame', { gameId }));
+      socket.on('resetGame', () => showScreen(landingScreen, [gameScreen, resultScreen, errorScreen]));
     }
-    if (socket) bindSocketEvents();
+
+    if (socket) bindSocket();
   </script>
 </body>
 </html>
