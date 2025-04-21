@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game of Elements</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Game of Elements</h1>
+        
+        <div class="instructions">
+            <p>First to score 5 points wins!</p>
+            <p>Fire beats Air & Ice | Water beats Fire & Earth | Earth beats Air & Ice | Air beats Water & Fire | Ice beats Water & Earth</p>
+        </div>
+        
+        <div class="scoreboard">
+            <div class="score-container">
+                <h2>Player: <span id="player-score">0</span></h2>
+            </div>
+            <div class="score-container">
+                <h2>Computer: <span id="computer-score">0</span></h2>
+            </div>
+        </div>
+        
+        <div class="game-status">
+            <p id="player-choice">Make your choice!</p>
+            <p id="computer-choice">Waiting for your move...</p>
+            <p id="result">Choose an element to start the game!</p>
+        </div>
+        
+        <div class="choices">
+            <button id="fire" class="choice">Fire</button>
+            <button id="water" class="choice">Water</button>
+            <button id="earth" class="choice">Earth</button>
+            <button id="air" class="choice">Air</button>
+            <button id="ice" class="choice">Ice</button>
+        </div>
+        
+        <button id="reset-button">Reset Game</button>
+    </div>
+    
+    <div id="game-over-modal" class="modal">
+        <div class="modal-content">
+            <h2>Game Over</h2>
+            <p id="game-over-text"></p>
+            <button id="close-modal">Close</button>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
