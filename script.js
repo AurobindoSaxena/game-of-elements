@@ -20,11 +20,11 @@ const closeModalButton = document.getElementById("close-modal");
 
 // Game elements with their strengths
 const elements = {
-    fire: ["air", "ice"],
+    fire: ["air", "Ether"],
     water: ["fire", "earth"],
-    earth: ["air", "ice"],
+    earth: ["air", "Ether"],
     air: ["water", "fire"],
-    ice: ["water", "earth"]
+    Ether: ["water", "earth"]
 };
 
 // Setup event listeners
